@@ -4,7 +4,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using CoreWebAPI.Models;
-
+using Microsoft.AspNetCore.Rewrite;
+using Swashbuckle.Swagger.Model;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Cors.Internal;
 
 namespace CoreWebAPI
 {
@@ -16,9 +19,10 @@ namespace CoreWebAPI
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true);
-
+                
             if (env.IsEnvironment("Development"))
             {
+                
                 // This will push telemetry data through Application Insights pipeline faster, allowing you to view results immediately.
                 builder.AddApplicationInsightsSettings(developerMode: true);
             }
@@ -32,15 +36,97 @@ namespace CoreWebAPI
         // This method gets called by the runtime. Use this method to add services to the container
         public void ConfigureServices(IServiceCollection services)
         {
+            
             // Add framework services.
             services.AddApplicationInsightsTelemetry(Configuration);
             services.AddOptions();
             services.AddMvc();
-            services.AddSingleton<IApiRepository, ApiRepository>();
+            
+
+            services.AddLogging();
+            services.AddCors(options =>
+            {
+                options.AddPolicy("MySpecificOriginPolicy",
+                    builder => builder.WithOrigins("http://localhost:63238"));
+            });
+
+            services.Configure<MvcOptions>(options =>
+            {
+                options.Filters.Add(new CorsAuthorizationFilterFactory("MySpecificOriginPolicy"));
+            });
+
+            
+
+            //services.AddSingleton<IApiRepository, ApiRepository>();
+            services.AddTransient<IApiRepository, ApiRepository>();
+            var testSettings = Configuration.GetSection("TestSettings");
+            services.Configure<TestSetting>(testSettings);
+
+            var pathToDoc = Configuration["Swagger:Path"];
+
+
+            // Register the Swagger generator, defining one or more Swagger documents
+            services.AddSwaggerGen();
+            services.ConfigureSwaggerGen(options =>
+            {
+                options.SingleApiVersion(new Info
+                {
+                    Version = "v1",
+                    Title = "My CORE API",
+                    Description = "A simple api to create Items",
+                    TermsOfService = "None"
+                });
+                //options.IncludeXmlComments(pathToDoc);
+                options.DescribeAllEnumsAsStrings();
+            });
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
+        {
+            app.UseStaticFiles();
+            loggerFactory.AddConsole(Configuration.GetSection("Logging"));
+            loggerFactory.AddDebug();
+            app.UseCors("MySpecificOriginPolicy");
+            //app.UseCors();
+            app.UseApplicationInsightsRequestTelemetry();
+
+            app.UseApplicationInsightsExceptionTelemetry();
+            app.UseStatusCodePages();//enable using status code 404, 500 etc. pages
+            if (env.EnvironmentName == "Development")
+            {
+                app.UseBrowserLink();
+                app.UseDeveloperExceptionPage();
+            }
+            //else
+            //{
+            //    //app.UseStatusCodePagesWithRedirects("/Error/{0}");
+            //    app.UseExceptionHandler("/Error");
+            //}
+            //app.UseMvc();
+            app.UseMvcWithDefaultRoute();
+
+
+            //var options = new RewriteOptions()
+            //    .AddRedirectToHttpsPermanent();
+            //app.UseRewriter(options);
+
+            // Enable middleware to serve generated Swagger as a JSON endpoint.
+            app.UseSwagger();
+
+            // Enable middleware to serve swagger-ui (HTML, JS, CSS etc.), specifying the Swagger JSON endpoint.
+            app.UseSwaggerUi();
+
+        }
+
+        /// <summary>
+        /// This is an override method that will come in play instead of Configure(...) method, provided ASPNETCORE_Environment is set to Development(Remember method name should be in same case as environment)
+        /// </summary>
+        /// <param name="app"></param>
+        /// <param name="env"></param>
+        /// <param name="loggerFactory"></param>
+        public void Configuredevelopment(IApplicationBuilder app, IHostingEnvironment env, ILoggerFactory loggerFactory)
         {
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
@@ -49,6 +135,10 @@ namespace CoreWebAPI
 
             app.UseApplicationInsightsExceptionTelemetry();
 
+            if (env.EnvironmentName == "Development")
+            {
+                app.UseBrowserLink();
+            }
             app.UseMvc();
         }
     }

@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.IO;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Configuration;
 
 namespace CoreWebAPI
 {
@@ -22,6 +17,7 @@ namespace CoreWebAPI
                 .UseContentRoot(Directory.GetCurrentDirectory())
                 .UseIISIntegration()
                 .UseStartup<Startup>()
+                //.UseStartup("CustomStartup")// uses the assembly named CustomStartup as startup assembly
                 .Build();
 
             host.Run();

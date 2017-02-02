@@ -1,5 +1,7 @@
 ﻿using CoreWebAPI.Models;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,14 +13,30 @@ namespace CoreWebAPI.Controllers
     public class ItemController : Controller
     {
         public IApiRepository ItemsRepo { get; set; }
-        public ItemController(IApiRepository itemsRepo)
+        private readonly TestSetting _testsetting;
+
+        public ItemController(IApiRepository itemsRepo, IOptions<TestSetting> testsetting)
         {
             ItemsRepo = itemsRepo;
+            _testsetting = testsetting.Value;
         }
 
+        //[Route("/Error")]
+        //public IActionResult Index()
+        //{
+        //    return Content("Error occurred with status code: "+HttpContext.Response.StatusCode.ToString());            // Handle error here
+        //}
+
+
+        [Produces("text/json")]
         [HttpGet]
         public IEnumerable<Item> GetAll()
         {
+            //return null;
+            //var a = 2;
+            //var b = 1;
+
+            //var x = a / (b-1);
             return ItemsRepo.GetAll();
         }
 
@@ -40,6 +58,7 @@ namespace CoreWebAPI.Controllers
             {
                 return BadRequest();
             }
+            item.Value += _testsetting.Message;
             ItemsRepo.Add(item);
             //return CreatedAtRoute("GetItemById", new { name = item.Name }, item);
             return CreatedAtAction("GetOne", new { name = item.Name }, item); // http 201 -- Created
